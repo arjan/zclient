@@ -33,21 +33,10 @@ import time
 import oauth.oauth as oauth
 from optparse import OptionParser
 
-
-
-# settings for the local test consumer
-SERVER = '127.0.0.1'
-PORT = 8000
-
-# fake urls for the test server (matches ones in server.py)
-REQUEST_TOKEN_URL = 'http://127.0.0.1:8000/oauth/request_token'
-ACCESS_TOKEN_URL = 'http://127.0.0.1:8000/oauth/access_token'
-AUTHORIZATION_URL = 'http://127.0.0.1:8000/oauth/authorize'
-RESOURCE_URL = 'http://127.0.0.1:8000/oauth/photos'
-
-# key and secret granted by the service provider for this consumer application - same as the MockOAuthDataStore
-CONSUMER_KEY = 'kkFm68ejajpgCN67xx9kxNHcx3A='
-CONSUMER_SECRET = 'jVo0kRo8Qw3ZHp+csYeUVkmhyvI='
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 
 class ApplicationRegistry (object):
@@ -128,50 +117,47 @@ class ZotonicOAuthClient(oauth.OAuthClient):
 	#self.signature_method = oauth.OAuthSignatureMethod_HMAC_SHA1()
 	self.consumer = oauth.OAuthConsumer(self.site['ckey'], self.site['csec'])
 
-    def fetch_request_token(self, oauth_request):
+    def fetch_request_token(self):
+	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, callback='oob', http_url=self.request_token_url)
+	oauth_request.sign_request(self.signature_method, self.consumer, None)
         self.connection.request(oauth_request.http_method, self.request_token_url, headers=oauth_request.to_header()) 
         response = self.connection.getresponse()
 	if response.status >= 400:
 	    raise OAuthException(response.read())
         return oauth.OAuthToken.from_string(response.read())
 
-    def fetch_access_token(self, oauth_request):
+    def fetch_access_token(self):
+	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, verifier='', http_url=self.access_token_url)
+	oauth_request.sign_request(self.signature_method, self.consumer, token)
         self.connection.request(oauth_request.http_method, self.access_token_url, headers=oauth_request.to_header()) 
         response = self.connection.getresponse()
 	if response.status >= 400:
 	    raise OAuthException(response.read())
         return oauth.OAuthToken.from_string(response.read())
 
-    def authorize_token(self, oauth_request):
-        self.connection.request(oauth_request.http_method, oauth_request.to_url()) 
-        response = self.connection.getresponse()
-	if response.status >= 400:
-	    raise OAuthException(response.read())
-        return response.read()
-
     def doMethod(self, method, parameters):
-	url = 'http://%s/api/%s' % (self.site['host'], method)
-	print self.client
+	if parameters:
+	    encoded_params = "?" + ("&".join(["%s=%s" % (oauth.escape(k), oauth.escape(v)) for k,v in parameters.iteritems()]))
+	else:
+	    encoded_params = ""
+	url = 'http://%s/api/%s%s' % (self.site['host'], method, encoded_params)
 	token = oauth.OAuthToken(self.client['tkey'], self.client['tsec'])
 	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, http_method='GET', http_url=url, parameters=parameters)
 	oauth_request.sign_request(self.signature_method, self.consumer, token)
 
-        self.connection.request(oauth_request.http_method, self.access_token_url, headers=oauth_request.to_header()) 
+        self.connection.request(oauth_request.http_method, url, headers=oauth_request.to_header()) 
         response = self.connection.getresponse()
-	print response.read()
-        #headers = {'Content-Type' :'application/x-www-form-urlencoded'}
-        #self.connection.request('POST', RESOURCE_URL, body=oauth_request.to_postdata(), headers=headers)
-        #response = self.connection.getresponse()
-	decoded = {}
+	if response.status >= 400:
+	    raise OAuthException(response.read())
+
+	decoded = json.loads(response.read())
 	return decoded
 
 
     def register_client(self, callback=None):
 
 	# fetch request token
-	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, callback='oob', http_url=self.request_token_url)
-	oauth_request.sign_request(self.signature_method, self.consumer, None)
-	token = self.fetch_request_token(oauth_request)
+	token = self.fetch_request_token()
 
 	oauth_request = oauth.OAuthRequest.from_token_and_callback(token=token, http_url=self.authorization_url)
 	url = oauth_request.to_url()
@@ -189,15 +175,10 @@ class ZotonicOAuthClient(oauth.OAuthClient):
             callback = wait_for_url
 
 	callback(url)
-	
+
 	# get access token
-	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, verifier='', http_url=self.access_token_url)
-	oauth_request.sign_request(self.signature_method, self.consumer, token)
-	token = self.fetch_access_token(oauth_request)
+	token = self.fetch_access_token()
 	return token
-
-
-
 
 
 class CLIController(object):
@@ -236,17 +217,19 @@ class CLIController(object):
 	    token = client.register_client()
 	    self.registry.addClient(id, site_id, token.key, token.secret)
 	    self.registry.save()
-
+	    print "OK"
 	except ConfigParser.NoSectionError:
 	    print "No such site: "+site_id
 	    exit(1)
-	print site
 
 
-    def do_request(self, client_id, method, args=None):
+    def do_request(self, client_id, method, *args):
 	client = self.registry.getClient(client_id)
 	client = ZotonicOAuthClient(client)
-	client.doMethod(method, args)
+	params = dict((a.split("=",1) for a in args))
+	result = client.doMethod(method, params)
+	print json.dumps(result, sort_keys=True, indent=2)
+
 
 
 
@@ -273,8 +256,9 @@ def error(msg):
     print
     exit(3)
 
+
 # main code
-def main():
+if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-r", "--registry", help="Registry file", default='~/.zclient')
 
@@ -290,17 +274,4 @@ def main():
     getattr(client, "do_"+command.replace('-', '_'))(*args)
 
 
-main()
 
-exit()
-
-
-
-
-def pause():
-    print ''
-    time.sleep(1)
-
-if __name__ == '__main__':
-    run_example()
-    print 'Done.'
