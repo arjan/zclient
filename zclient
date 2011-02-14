@@ -1,0 +1,306 @@
+#!/usr/bin/env python
+
+"""
+The MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Based on client.py from python-oauth, Copyright (c) 2007 Leah Culver
+
+"""
+
+import sys
+import os
+import ConfigParser
+import httplib
+import time
+import oauth.oauth as oauth
+from optparse import OptionParser
+
+
+
+# settings for the local test consumer
+SERVER = '127.0.0.1'
+PORT = 8000
+
+# fake urls for the test server (matches ones in server.py)
+REQUEST_TOKEN_URL = 'http://127.0.0.1:8000/oauth/request_token'
+ACCESS_TOKEN_URL = 'http://127.0.0.1:8000/oauth/access_token'
+AUTHORIZATION_URL = 'http://127.0.0.1:8000/oauth/authorize'
+RESOURCE_URL = 'http://127.0.0.1:8000/oauth/photos'
+
+# key and secret granted by the service provider for this consumer application - same as the MockOAuthDataStore
+CONSUMER_KEY = 'kkFm68ejajpgCN67xx9kxNHcx3A='
+CONSUMER_SECRET = 'jVo0kRo8Qw3ZHp+csYeUVkmhyvI='
+
+
+class ApplicationRegistry (object):
+
+    def __init__(self, fn=None):
+	self.setFilename(fn)
+
+    def setFilename(self, fn):
+	self.filename = os.path.expanduser(fn)
+	self.parser = ConfigParser.ConfigParser()
+	self.parser.read(self.filename)
+
+    def getSites(self):
+	return [s[5:] for s in self.parser.sections() if s[:5] == "site:"]
+
+    def getClients(self):
+	return [s[7:] for s in self.parser.sections() if s[:7] == "client:"]
+
+    def addSite(self, id, host, ckey, csec):
+	k = 'site:'+id
+	self.parser.add_section(k)
+	self.parser.set(k, 'host', host)
+	self.parser.set(k, 'ckey', ckey)
+	self.parser.set(k, 'csec', csec)
+
+    def removeSite(self, id):
+	k = 'site:'+id
+	self.parser.remove_section(k)
+
+    def addClient(self, id, site, tkey, tsec):
+	k = 'client:'+id
+	self.parser.add_section(k)
+	self.parser.set(k, 'site', site)
+	self.parser.set(k, 'tkey', tkey)
+	self.parser.set(k, 'tsec', tsec)
+
+    def removeClient(self, id):
+	k = 'client:'+id
+	self.parser.remove_section(k)
+
+    def getSite(self, id):
+	return dict(self.parser.items("site:"+id))
+
+    def getClient(self, id):
+	client = dict(self.parser.items("client:"+id))
+	site = self.getSite(client['site'])
+	site['id'] = client['site']
+	client['site'] = site
+	return client
+    
+    def showAll(self):
+	print "Sites: " + ', '.join(self.getSites())
+	print "Clients: " + ', '.join(self.getClients())
+
+    def save(self):
+	self.parser.write(open(self.filename, 'w'))
+
+
+
+class OAuthException(Exception):
+    pass
+
+class ZotonicOAuthClient(oauth.OAuthClient):
+
+    def __init__(self, client_or_site):
+	if 'site' in client_or_site:
+	    self.site = client_or_site['site']
+	    self.client = client_or_site
+	else:
+	    self.site = client_or_site
+	    self.client = None
+
+        self.request_token_url = 'http://%s/oauth/request_token' % self.site['host']
+        self.authorization_url = 'http://%s/oauth/authorize' % self.site['host']
+        self.access_token_url = 'http://%s/oauth/access_token' % self.site['host']
+        self.connection = httplib.HTTPConnection(self.site['host'])
+	self.signature_method = oauth.OAuthSignatureMethod_PLAINTEXT()
+	#self.signature_method = oauth.OAuthSignatureMethod_HMAC_SHA1()
+	self.consumer = oauth.OAuthConsumer(self.site['ckey'], self.site['csec'])
+
+    def fetch_request_token(self, oauth_request):
+        self.connection.request(oauth_request.http_method, self.request_token_url, headers=oauth_request.to_header()) 
+        response = self.connection.getresponse()
+	if response.status >= 400:
+	    raise OAuthException(response.read())
+        return oauth.OAuthToken.from_string(response.read())
+
+    def fetch_access_token(self, oauth_request):
+        self.connection.request(oauth_request.http_method, self.access_token_url, headers=oauth_request.to_header()) 
+        response = self.connection.getresponse()
+	if response.status >= 400:
+	    raise OAuthException(response.read())
+        return oauth.OAuthToken.from_string(response.read())
+
+    def authorize_token(self, oauth_request):
+        self.connection.request(oauth_request.http_method, oauth_request.to_url()) 
+        response = self.connection.getresponse()
+	if response.status >= 400:
+	    raise OAuthException(response.read())
+        return response.read()
+
+    def doMethod(self, method, parameters):
+	url = 'http://%s/api/%s' % (self.site['host'], method)
+	print self.client
+	token = oauth.OAuthToken(self.client['tkey'], self.client['tsec'])
+	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, http_method='GET', http_url=url, parameters=parameters)
+	oauth_request.sign_request(self.signature_method, self.consumer, token)
+
+        self.connection.request(oauth_request.http_method, self.access_token_url, headers=oauth_request.to_header()) 
+        response = self.connection.getresponse()
+	print response.read()
+        #headers = {'Content-Type' :'application/x-www-form-urlencoded'}
+        #self.connection.request('POST', RESOURCE_URL, body=oauth_request.to_postdata(), headers=headers)
+        #response = self.connection.getresponse()
+	decoded = {}
+	return decoded
+
+
+    def register_client(self, callback=None):
+
+	# fetch request token
+	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, callback='oob', http_url=self.request_token_url)
+	oauth_request.sign_request(self.signature_method, self.consumer, None)
+	token = self.fetch_request_token(oauth_request)
+
+	oauth_request = oauth.OAuthRequest.from_token_and_callback(token=token, http_url=self.authorization_url)
+	url = oauth_request.to_url()
+
+        if callback is None:
+            def wait_for_url(url):
+                print "*" * 60
+                print "Please go to the following URL to authorize your request."
+                print "When you're done, press ENTER here to finish."
+                print
+                print ">>> ", url
+                print
+                print "*" * 60
+                sys.stdin.readline()
+            callback = wait_for_url
+
+	callback(url)
+	
+	# get access token
+	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, verifier='', http_url=self.access_token_url)
+	oauth_request.sign_request(self.signature_method, self.consumer, token)
+	token = self.fetch_access_token(oauth_request)
+	return token
+
+
+
+
+
+class CLIController(object):
+
+    def __init__(self, fn=None):
+	self.registry = ApplicationRegistry(fn)
+
+    def do_list(self):
+	self.registry.showAll()
+
+    def do_add_site(self, id, hostname, ckey, csec):
+	try:
+	    self.registry.addSite(id, hostname, ckey, csec)
+	    self.registry.save()
+	    print "OK"
+	except ConfigParser.DuplicateSectionError:
+	    print "Duplicate site id"
+	    exit(1)
+
+    def do_del_site(self, id):
+	try:
+	    self.registry.removeSite(id)
+	    self.registry.save()
+	    print "OK"
+	except ConfigParser.NoSectionError:
+	    print "Unknown site id"
+	    exit(1)
+
+    def do_add_client(self, id, site_id):
+	if id in self.registry.getClients():
+	    print "Client id already taken"
+	    exit(1)
+	try:
+	    site = self.registry.getSite(site_id)
+	    client = ZotonicOAuthClient(site)
+	    token = client.register_client()
+	    self.registry.addClient(id, site_id, token.key, token.secret)
+	    self.registry.save()
+
+	except ConfigParser.NoSectionError:
+	    print "No such site: "+site_id
+	    exit(1)
+	print site
+
+
+    def do_request(self, client_id, method, args=None):
+	client = self.registry.getClient(client_id)
+	client = ZotonicOAuthClient(client)
+	client.doMethod(method, args)
+
+
+
+def usage():
+    print "Usage: zclient <command> [opts]"
+    print "Generic zotonic API access client."
+    print
+    print "Command:"
+    print
+    print "  add-site <site id> <hostname> <consumer key> <consumer secret>"
+    print "  - adds a new site plus its consumer details"
+    print
+    print "  add-client <client id> <site id>"
+    print "  - sets up authorization for a given oauth app"
+    print
+    print "  request <client id> <api method> [params]"
+    print "  - do an authorized API request, pretty-print the result"
+    print "    e.g.: 'zclient request foo base/export id=1' to dump pages"
+    print
+    exit(3)
+
+def error(msg):
+    print "Error: " + msg
+    print
+    exit(3)
+
+# main code
+def main():
+    parser = OptionParser()
+    parser.add_option("-r", "--registry", help="Registry file", default='~/.zclient')
+
+    (options, args) = parser.parse_args()
+
+    try:
+	command = args[0]
+	args = args[1:]
+    except:
+	usage()
+
+    client = CLIController(options.registry)
+    getattr(client, "do_"+command.replace('-', '_'))(*args)
+
+
+main()
+
+exit()
+
+
+
+
+def pause():
+    print ''
+    time.sleep(1)
+
+if __name__ == '__main__':
+    run_example()
+    print 'Done.'
