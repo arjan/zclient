@@ -24,6 +24,7 @@ keys, secrets and authorized access tokens.
         e.g.: 'zclient request foo base/export id=1' to dump pages
 
 
+
 Quick walkthru
 --------------
 
@@ -80,4 +81,9 @@ to the terminal and press "Enter". Now you should be ready to go!
            327, 
            1
          ]
+
+
+**NOTE: On release 0.6.0, the API access has been accidentally
+  broken. Please use mercurial default or release-0.6.x branch if you
+  want to use the API methods.**
 
