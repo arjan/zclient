@@ -49,27 +49,27 @@ class ApplicationRegistry (object):
 	self.parser = ConfigParser.ConfigParser()
 	self.parser.read(self.filename)
 
-    def getSites(self):
-	return [s[5:] for s in self.parser.sections() if s[:5] == "site:"]
+    def getApps(self):
+	return [s[5:] for s in self.parser.sections() if s[:5] == "app:"]
 
     def getClients(self):
 	return [s[7:] for s in self.parser.sections() if s[:7] == "client:"]
 
-    def addSite(self, id, host, ckey, csec):
-	k = 'site:'+id
+    def addApp(self, id, host, ckey, csec):
+	k = 'app:'+id
 	self.parser.add_section(k)
 	self.parser.set(k, 'host', host)
 	self.parser.set(k, 'ckey', ckey)
 	self.parser.set(k, 'csec', csec)
 
-    def removeSite(self, id):
-	k = 'site:'+id
+    def removeApp(self, id):
+	k = 'app:'+id
 	self.parser.remove_section(k)
 
-    def addClient(self, id, site, tkey, tsec):
+    def addClient(self, id, app, tkey, tsec):
 	k = 'client:'+id
 	self.parser.add_section(k)
-	self.parser.set(k, 'site', site)
+	self.parser.set(k, 'app', app)
 	self.parser.set(k, 'tkey', tkey)
 	self.parser.set(k, 'tsec', tsec)
 
@@ -77,18 +77,18 @@ class ApplicationRegistry (object):
 	k = 'client:'+id
 	self.parser.remove_section(k)
 
-    def getSite(self, id):
-	return dict(self.parser.items("site:"+id))
+    def getApp(self, id):
+	return dict(self.parser.items("app:"+id))
 
     def getClient(self, id):
 	client = dict(self.parser.items("client:"+id))
-	site = self.getSite(client['site'])
-	site['id'] = client['site']
-	client['site'] = site
+	app = self.getApp(client['app'])
+	app['id'] = client['app']
+	client['app'] = app
 	return client
     
     def showAll(self):
-	print "Sites: " + ', '.join(self.getSites())
+	print "Apps: " + ', '.join(self.getApps())
 	print "Clients: " + ', '.join(self.getClients())
 
     def save(self):
@@ -101,21 +101,21 @@ class OAuthException(Exception):
 
 class ZotonicOAuthClient(oauth.OAuthClient):
 
-    def __init__(self, client_or_site):
-	if 'site' in client_or_site:
-	    self.site = client_or_site['site']
-	    self.client = client_or_site
+    def __init__(self, client_or_app):
+	if 'app' in client_or_app:
+	    self.app = client_or_app['app']
+	    self.client = client_or_app
 	else:
-	    self.site = client_or_site
+	    self.app = client_or_app
 	    self.client = None
 
-        self.request_token_url = 'http://%s/oauth/request_token' % self.site['host']
-        self.authorization_url = 'http://%s/oauth/authorize' % self.site['host']
-        self.access_token_url = 'http://%s/oauth/access_token' % self.site['host']
-        self.connection = httplib.HTTPConnection(self.site['host'])
+        self.request_token_url = 'http://%s/oauth/request_token' % self.app['host']
+        self.authorization_url = 'http://%s/oauth/authorize' % self.app['host']
+        self.access_token_url = 'http://%s/oauth/access_token' % self.app['host']
+        self.connection = httplib.HTTPConnection(self.app['host'])
 	self.signature_method = oauth.OAuthSignatureMethod_PLAINTEXT()
 	#self.signature_method = oauth.OAuthSignatureMethod_HMAC_SHA1()
-	self.consumer = oauth.OAuthConsumer(self.site['ckey'], self.site['csec'])
+	self.consumer = oauth.OAuthConsumer(self.app['ckey'], self.app['csec'])
 
     def fetch_request_token(self):
 	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, callback='oob', http_url=self.request_token_url)
@@ -140,7 +140,7 @@ class ZotonicOAuthClient(oauth.OAuthClient):
 	    encoded_params = "?" + ("&".join(["%s=%s" % (oauth.escape(k), oauth.escape(v)) for k,v in parameters.iteritems()]))
 	else:
 	    encoded_params = ""
-	url = 'http://%s/api/%s%s' % (self.site['host'], method, encoded_params)
+	url = 'http://%s/api/%s%s' % (self.app['host'], method, encoded_params)
 	token = oauth.OAuthToken(self.client['tkey'], self.client['tsec'])
 	oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, http_method='GET', http_url=url, parameters=parameters)
 	oauth_request.sign_request(self.signature_method, self.consumer, token)
@@ -189,37 +189,37 @@ class CLIController(object):
     def do_list(self):
 	self.registry.showAll()
 
-    def do_add_site(self, id, hostname, ckey, csec):
+    def do_add_app(self, id, hostname, ckey, csec):
 	try:
-	    self.registry.addSite(id, hostname, ckey, csec)
+	    self.registry.addApp(id, hostname, ckey, csec)
 	    self.registry.save()
 	    print "OK"
 	except ConfigParser.DuplicateSectionError:
-	    print "Duplicate site id"
+	    print "Duplicate app id"
 	    exit(1)
 
-    def do_del_site(self, id):
+    def do_del_app(self, id):
 	try:
-	    self.registry.removeSite(id)
+	    self.registry.removeApp(id)
 	    self.registry.save()
 	    print "OK"
 	except ConfigParser.NoSectionError:
-	    print "Unknown site id"
+	    print "Unknown app id"
 	    exit(1)
 
-    def do_add_client(self, id, site_id):
+    def do_add_client(self, id, app_id):
 	if id in self.registry.getClients():
 	    print "Client id already taken"
 	    exit(1)
 	try:
-	    site = self.registry.getSite(site_id)
-	    client = ZotonicOAuthClient(site)
+	    app = self.registry.getApp(app_id)
+	    client = ZotonicOAuthClient(app)
 	    token = client.register_client()
-	    self.registry.addClient(id, site_id, token.key, token.secret)
+	    self.registry.addClient(id, app_id, token.key, token.secret)
 	    self.registry.save()
 	    print "OK"
 	except ConfigParser.NoSectionError:
-	    print "No such site: "+site_id
+	    print "No such app: "+app_id
 	    exit(1)
 
 
@@ -239,10 +239,13 @@ def usage():
     print
     print "Command:"
     print
-    print "  add-site <site id> <hostname> <consumer key> <consumer secret>"
-    print "  - adds a new site plus its consumer details"
+    print "  add-app <app id> <hostname> <consumer key> <consumer secret>"
+    print "  - adds a new app plus its consumer details"
     print
-    print "  add-client <client id> <site id>"
+    print "  del-app <app id>"
+    print "  - Remove the app and all its authorized clients"
+    print
+    print "  add-client <client id> <app id>"
     print "  - sets up authorization for a given oauth app"
     print
     print "  request <client id> <api method> [params]"
