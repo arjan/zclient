@@ -47,7 +47,7 @@ This token/secret pair uniquely identifies your application.
 
 ### 4. Register the app with zclient ###
 
-`zclient add-app someappid 127.0.0.1:8000 <yourconsumerkey> <yourconsumersecret>`
+    zclient add-app someappid 127.0.0.1:8000 <yourconsumerkey> <yourconsumersecret>
   
 "*someappid*" is some identifier that you come up with to identify
   this app on the zclient side. For example: `my-mobile-app`.
@@ -59,7 +59,7 @@ This token/secret pair uniquely identifies your application.
 In zclient terminology, a *client* is an authorized token/secret pair
 which authorizes a user to use one of the zclient apps.
 
-`zclient add-client yourclientid someappid`
+    zclient add-client yourclientid someappid
 
 The "*yourclientid*" is some identifier to identify the authorized
 token for this app on the zclient side.
@@ -70,11 +70,11 @@ to the terminal and press "Enter". Now you should be ready to go!
 
 ### 6. Do an authorized request ###
 
-`zclient request yourclientid <api method> [arg [arg..]]`
+    zclient request yourclientid <api method> [arg [arg..]]
   
 For example:
   
-`zclient request yourclientid search cat=keyword`
+    zclient request yourclientid search cat=keyword
   
 Maps to the API request `http://yourclienthost/api/search?cat=keyword`
 POST requests are currently not (yet) supported.
