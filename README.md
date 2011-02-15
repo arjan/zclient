@@ -41,7 +41,7 @@ etc. callback can be left empty. On the second tab, check the boxes
 with the API methods that this app may access. Click the "add
 application" button.
 
-## 3. Write down / copy-paste the consumer key and consumer secret ##
+### 3. Write down / copy-paste the consumer key and consumer secret ###
 
 This token/secret pair uniquely identifies your application.
 
