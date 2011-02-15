@@ -80,12 +80,12 @@ Maps to the API request `http://yourclienthost/api/search?cat=keyword`
 POST requests are currently not (yet) supported.
   
 Example API request to search for all persons:
-  
-         ixion:~/devel/zclient> ./zclient request test search cat=person
-         [
-           327, 
-           1
-         ]
+ 
+    arjan@localhost:~$ zclient request test search cat=person
+    [
+      327, 
+      1
+    ]
 
 
 **NOTE: On release 0.6.0, the API access has been accidentally
