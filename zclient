@@ -104,9 +104,12 @@ class ApplicationRegistry (object):
             print "%-20s %s   " % (client, c['app']['id'])
         print
 
-
     def save(self):
         self.parser.write(open(self.filename, 'w'))
+
+    def getZotonicClient(self, client_id):
+        client = self.getClient(client_id)
+        return ZotonicOAuthClient(client)
 
 
 
@@ -149,7 +152,7 @@ class ZotonicOAuthClient(oauth.OAuthClient):
             raise OAuthException(response.read())
         return oauth.OAuthToken.from_string(response.read())
 
-    def doMethod(self, method, parameters):
+    def doMethod(self, method, parameters={}):
         if parameters:
             encoded_params = "?" + ("&".join(["%s=%s" % (oauth.escape(k), oauth.escape(v)) for k,v in parameters.iteritems()]))
         else:
@@ -291,3 +294,4 @@ if __name__ == "__main__":
 
 
 
+__all__ = ['ApplicationRegistry', 'OAuthException', 'ZotonicOAuthClient', 'CLIController']
