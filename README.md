@@ -92,8 +92,3 @@ Example API request to search for all persons:
   broken. Please use mercurial default or release-0.6.x branch if you
   want to use the API methods.**
 
-
-Python example
---------------
-
-     
