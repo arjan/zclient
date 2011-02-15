@@ -28,53 +28,58 @@ keys, secrets and authorized access tokens.
 Quick walkthru
 --------------
 
-1. **Enable mod_oauth in Zotonic** - go to the admin, modules tab,
-find the OAuth module and click "activate", if it is not already
-activated. Refresh the page.
+### 1) Enable mod_oauth in Zotonic ###
 
-1. **Create new OAuth application** Go to "API access" tab and click
-"add new application". In the dialog, enter the application details,
-such as title, home page, etc. callback can be left empty. On the
-second tab, check the boxes with the API methods that this app may
-access. Click the "add application" button.
+Go to the admin, modules tab, find the OAuth module and click
+"activate", if it is not already activated. Refresh the page.
 
-1. **Write down / copy-paste the consumer key and consumer secret**
+### 2) Create new OAuth application ###
+
+Go to "API access" tab and click "add new application". In the
+dialog, enter the application details, such as title, home page,
+etc. callback can be left empty. On the second tab, check the boxes
+with the API methods that this app may access. Click the "add
+application" button.
+
+## 3. Write down / copy-paste the consumer key and consumer secret ##
+
 This token/secret pair uniquely identifies your application.
 
-1. **Register the app with zclient**
+### 4. Register the app with zclient ###
 
-  `zclient add-app someappid 127.0.0.1:8000 <yourconsumerkey> <yourconsumersecret>`
+`zclient add-app someappid 127.0.0.1:8000 <yourconsumerkey> <yourconsumersecret>`
   
-  "*someappid*" is some identifier that you come up with to identify
+"*someappid*" is some identifier that you come up with to identify
   this app on the zclient side. For example: `my-mobile-app`.
   Copy-paste the consumer key and secret from the previous step onto
   the command line.
 
-1. **Add a client for the app** in zclient terminology, a *client* is
-an authorized token/secret pair which authorizes a user to use one of
-the zclient apps.
+### 5. Add a client for the app ###
 
-  `zclient add-client yourclientid someappid`
+In zclient terminology, a *client* is an authorized token/secret pair
+which authorizes a user to use one of the zclient apps.
 
-  The "*yourclientid*" is some identifier to identify the authorized
+`zclient add-client yourclientid someappid`
+
+The "*yourclientid*" is some identifier to identify the authorized
 token for this app on the zclient side.
   
-   You will be prompted to click on an URL. Do that. Log on to zotonic
+You will be prompted to click on an URL. Do that. Log on to zotonic
 and click the "authorize" button on the authorization screen.  Return
 to the terminal and press "Enter". Now you should be ready to go!
 
-1. **Do an authorized request**
+### 6. Do an authorized request ###
 
-  `zclient request yourclientid <api method> [arg [arg..]]`
+`zclient request yourclientid <api method> [arg [arg..]]`
   
-  For example:
+For example:
   
-  `zclient request yourclientid search cat=keyword`
+`zclient request yourclientid search cat=keyword`
   
-  Maps to the API request `http://yourclienthost/api/search?cat=keyword`
-  POST requests are currently not (yet) supported.
+Maps to the API request `http://yourclienthost/api/search?cat=keyword`
+POST requests are currently not (yet) supported.
   
-  Example API request to search for all persons:
+Example API request to search for all persons:
   
          ixion:~/devel/zclient> ./zclient request test search cat=person
          [
@@ -87,3 +92,8 @@ to the terminal and press "Enter". Now you should be ready to go!
   broken. Please use mercurial default or release-0.6.x branch if you
   want to use the API methods.**
 
+
+Python example
+--------------
+
+     
