@@ -1,32 +1,7 @@
-#!/usr/bin/env python
+# Copyright 2011 Arjan Scherpenisse <arjan@scherpenisse.net>
+# See LICENSE for details.
 
-"""
-The MIT License
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-Author: Arjan Scherpenisse <arjan@scherpenisse.net>
-Copyright (c) 2011 Arjan Scherpenisse
-
-Based on client.py from python-oauth, Copyright (c) 2007 Leah Culver
-
-"""
+# Based on client.py from python-oauth, Copyright (c) 2007 Leah Culver
 
 import sys
 import os
@@ -34,7 +9,6 @@ import ConfigParser
 import httplib
 import time
 import oauth.oauth as oauth
-from optparse import OptionParser
 
 try:
     import json
@@ -109,14 +83,14 @@ class ApplicationRegistry (object):
 
     def getZotonicClient(self, client_id):
         client = self.getClient(client_id)
-        return ZotonicOAuthClient(client)
+        return ZotonicClient(client)
 
 
 
 class OAuthException(Exception):
     pass
 
-class ZotonicOAuthClient(oauth.OAuthClient):
+class ZotonicClient(oauth.OAuthClient):
 
     def __init__(self, client_or_app):
         if 'app' in client_or_app:
@@ -197,101 +171,3 @@ class ZotonicOAuthClient(oauth.OAuthClient):
         token = self.fetch_access_token()
         return token
 
-
-class CLIController(object):
-
-    def __init__(self, fn=None):
-        self.registry = ApplicationRegistry(fn)
-
-    def do_list(self):
-        self.registry.showAll()
-
-    def do_add_app(self, id, hostname, ckey, csec):
-        try:
-            self.registry.addApp(id, hostname, ckey, csec)
-            self.registry.save()
-            print "OK"
-        except ConfigParser.DuplicateSectionError:
-            print "Duplicate app id"
-            exit(1)
-
-    def do_del_app(self, id):
-        try:
-            self.registry.removeApp(id)
-            self.registry.save()
-            print "OK"
-        except ConfigParser.NoSectionError:
-            print "Unknown app id"
-            exit(1)
-
-    def do_add_client(self, id, app_id):
-        if id in self.registry.getClients():
-            print "Client id already taken"
-            exit(1)
-        try:
-            app = self.registry.getApp(app_id)
-            client = ZotonicOAuthClient(app)
-            token = client.register_client()
-            self.registry.addClient(id, app_id, token.key, token.secret)
-            self.registry.save()
-            print "OK"
-        except ConfigParser.NoSectionError:
-            print "No such app: "+app_id
-            exit(1)
-
-
-    def do_request(self, client_id, method, *args):
-        client = self.registry.getClient(client_id)
-        client = ZotonicOAuthClient(client)
-        params = dict((a.split("=",1) for a in args))
-        result = client.doMethod(method, params)
-        print json.dumps(result, sort_keys=True, indent=2)
-
-
-
-def usage():
-    print "Usage: zclient <command> [opts]"
-    print "Generic zotonic API access client."
-    print
-    print "Command:"
-    print
-    print "  add-app <app id> <hostname> <consumer key> <consumer secret>"
-    print "  - adds a new app plus its consumer details"
-    print
-    print "  del-app <app id>"
-    print "  - Remove the app and all its authorized clients"
-    print
-    print "  add-client <client id> <app id>"
-    print "  - sets up authorization for a given oauth app"
-    print
-    print "  request <client id> <api method> [params]"
-    print "  - do an authorized API request, pretty-print the result"
-    print "    e.g.: 'zclient request foo base/export id=1' to dump pages"
-    print
-    exit(3)
-
-def error(msg):
-    print "Error: " + msg
-    print
-    exit(3)
-
-
-# main code
-if __name__ == "__main__":
-    parser = OptionParser()
-    parser.add_option("-r", "--registry", help="Registry file", default='~/.zclient')
-
-    (options, args) = parser.parse_args()
-
-    try:
-        command = args[0]
-        args = args[1:]
-    except:
-        usage()
-
-    client = CLIController(options.registry)
-    getattr(client, "do_"+command.replace('-', '_'))(*args)
-
-
-
-__all__ = ['ApplicationRegistry', 'OAuthException', 'ZotonicOAuthClient', 'CLIController']
