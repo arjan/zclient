@@ -1,4 +1,4 @@
-# Copyright 2011 Arjan Scherpenisse <arjan@scherpenisse.net>
+# Copyright 2011, 2012 Arjan Scherpenisse <arjan@scherpenisse.net>
 # See LICENSE for details.
 
 """
@@ -9,4 +9,4 @@ from base import ApplicationRegistry, ZotonicClient
 
 __all__ = ['ApplicationRegistry', 'ZotonicClient']
 
-__version__ = "1.0"
+__version__ = "1.1"

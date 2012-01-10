@@ -87,8 +87,3 @@ Example API request to search for all persons:
       1
     ]
 
-
-**NOTE: On release 0.6.0, the API access has been accidentally
-  broken. Please use mercurial default or release-0.6.x branch if you
-  want to use the API methods.**
-
