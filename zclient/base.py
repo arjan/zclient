@@ -246,20 +246,6 @@ class ZotonicClient(oauth.OAuthClient):
         #    raise APIException("Error %d" % status)
         return json.loads(page)
 
-        # def doMethod(self, http_method, method, parameters={}):
-    #     url = self.getUrl(method, parameters)
-    #     token = oauth.OAuthToken(self.client['tkey'], self.client['tsec'])
-    #     oauth_request = oauth.OAuthRequest.from_consumer_and_token(self.consumer, token=token, http_method=http_method, http_url=url, parameters=parameters)
-    #     oauth_request.sign_request(self.signature_method, self.consumer, token)
-
-    #     self.connection.request(oauth_request.http_method, url, headers=oauth_request.to_header()) 
-    #     response = self.connection.getresponse()
-    #     if response.status >= 400:
-    #         raise OAuthException(response.read())
-
-    #     decoded = json.loads(response.read())
-    #     return decoded
-
 
     def getUrl(self, method, parameters={}):
         if parameters:
